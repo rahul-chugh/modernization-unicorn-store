@@ -1,10 +1,17 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System;
 
 namespace UnicornStore.Models
 {
-    public class ApplicationUser : IdentityUser { }
+    public class ApplicationUser : IdentityUser
+    {
+        public ApplicationUser()
+        {
+            this.SecurityStamp = Guid.NewGuid().ToString("D"); // Fixes an exception thrown when database is seeded.
+        }
+    }
 
     public class UnicornStoreContext : IdentityDbContext<ApplicationUser>
     {
