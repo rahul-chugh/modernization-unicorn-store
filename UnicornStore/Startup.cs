@@ -1,4 +1,3 @@
-using System.Data.SqlClient;
 using System;
 using System.Globalization;
 using System.Linq;
@@ -10,22 +9,23 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using UnicornStore.Components;
 using UnicornStore.Models;
 using UnicornStore.HealthChecks;
+using System.Data.Common;
+using Microsoft.Extensions.Options;
+using Npgsql;
+using System.Data.SqlClient;
+using UnicornStore.Configuration;
 
 namespace UnicornStore
 {
-    public class Startup
+    public partial class Startup
     {
-        private string _connection = null;
-
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -33,30 +33,22 @@ namespace UnicornStore
 
         public IConfiguration Configuration { get; private set; }
 
+        internal IConfigurationSection ConnectionStringOverrideConfigSection => this.Configuration.GetSection("UnicornDbConnectionStringBuilder");
+
         public void ConfigureServices(IServiceCollection services)
         {
-            // The UNICORNSTORE_DBSECRET is stored in AWS Secrets Manager
-            // The value is loaded as an Environment Variable in a JSON string
-            // The key/value pairs are mapped to the Configuration
-            if (Configuration["UNICORNSTORE_DBSECRET"] != null)
-            {
-                var unicorn_envvariables = Configuration["UNICORNSTORE_DBSECRET"];
-                JObject parsed_json = JObject.Parse(unicorn_envvariables);
-                Configuration["UNICORNSTORE_DBSECRET:username"] = (string)parsed_json["username"];
-                Configuration["UNICORNSTORE_DBSECRET:password"] = (string)parsed_json["password"];
-                Configuration["UNICORNSTORE_DBSECRET:host"] = (string)parsed_json["host"];
-            }
-
-            var sqlconnectionbuilder = new SqlConnectionStringBuilder(
-                Configuration.GetConnectionString("UnicornStore"));
-            sqlconnectionbuilder.Password = Configuration["UNICORNSTORE_DBSECRET:password"];
-            sqlconnectionbuilder.UserID = Configuration["UNICORNSTORE_DBSECRET:username"];
-            sqlconnectionbuilder.DataSource = Configuration["UNICORNSTORE_DBSECRET:host"];
-            _connection = sqlconnectionbuilder.ConnectionString;
-
-            services.AddDbContext<UnicornStoreContext>(options =>
-                options.UseSqlServer(_connection));
-
+#if !POSTGRES
+            const string dbConnectionStringSettingName = "UnicornStoreSql";
+            services.Configure<SqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
+            services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
+            services.AddTransient<DbContextOptionsConfigurator, SqlDbContextOptionsConfigurator>();
+#else
+            const string dbConnectionStringSettingName = "UnicornStorePg";
+            services.Configure<NpgsqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
+            services.AddScoped(di => DbConnectionStringBuilderFactory<NpgsqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
+            services.AddTransient<DbContextOptionsConfigurator, NpgsqlDbContextOptionsConfigurator>();
+#endif
+            services.AddDbContext<UnicornStoreContext>();
 
             // Add Identity services to the services container
             services.AddIdentity<ApplicationUser, IdentityRole>()
@@ -106,6 +98,19 @@ namespace UnicornStore
             });
         }
 
+        /// <summary>
+        /// Combines default/common connection information supplied in the "ConnectionStrings.UnicornStore" configuration,
+        /// with override values supplied by the "UnicornDbConnectionStringBuilder" configuration settings section.
+        /// </summary>
+        /// <param name="di">DI container</param>
+        /// <returns></returns>
+        internal DbConnectionStringBuilder DbConnectionStringBuilderFactory<T>(IServiceProvider di, string defaultConnectionStringName) 
+            where T : DbConnectionStringBuilder, new()
+        {
+            DbConnectionStringBuilder overrideConnectionInfo = di.GetRequiredService<IOptionsSnapshot<T>>().Value;
+            string defaultConnectionString = this.Configuration.GetConnectionString(defaultConnectionStringName);
+            return overrideConnectionInfo.MergeDbConnectionStringBuilders(defaultConnectionString);
+        }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
