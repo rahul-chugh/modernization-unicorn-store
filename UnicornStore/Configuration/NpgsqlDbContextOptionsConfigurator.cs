@@ -19,7 +19,7 @@ namespace UnicornStore.Configuration
 
         internal override void Configure(DbContextOptionsBuilder optionsBuilder)
         {
-            this.logger.LogInformation("Coonection info: Server=\"{Server}\", Port=\"{Port}\", Database=\"{Database}\", User=\"{User}\"",
+            this.logger.LogInformation("Connection info: Server=\"{Server}\", Port=\"{Port}\", Database=\"{Database}\", User=\"{User}\"",
                 this.dbConnectionStringBuilder["Host"],
                 this.dbConnectionStringBuilder["Port"],
                 this.dbConnectionStringBuilder["Database"],
