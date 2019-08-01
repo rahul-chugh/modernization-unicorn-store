@@ -37,7 +37,7 @@ namespace UnicornStore
 
         public void ConfigureServices(IServiceCollection services)
         {
-#if !POSTGRES
+#if MSSQL
             const string dbConnectionStringSettingName = "UnicornStoreSql";
             services.Configure<SqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
             services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
