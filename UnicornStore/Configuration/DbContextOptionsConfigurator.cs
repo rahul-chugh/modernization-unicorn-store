@@ -1,5 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
 using System.Data.Common;
+using System.Linq;
 
 namespace UnicornStore.Configuration
 {
@@ -13,13 +17,18 @@ namespace UnicornStore.Configuration
     {
         protected readonly DbConnectionStringBuilder dbConnectionStringBuilder;
 
+        protected readonly ILogger logger;
+
         /// <summary>
         /// Instantiated by the DI container
         /// </summary>
         /// <param name="dbConnectionStringBuilder"></param>
-        public DbContextOptionsConfigurator(DbConnectionStringBuilder dbConnectionStringBuilder)
+        public DbContextOptionsConfigurator(
+            DbConnectionStringBuilder dbConnectionStringBuilder,
+            ILogger logger)
         {
             this.dbConnectionStringBuilder = dbConnectionStringBuilder;
+            this.logger = logger;
         }
 
         /// <summary>
@@ -27,6 +36,28 @@ namespace UnicornStore.Configuration
         /// "optionsBuilder.UseSqlServer(this.dbConnectionStringBuilder.ConnectionString)"
         /// </summary>
         /// <param name="optionsBuilder"></param>
-        internal abstract void Configure(DbContextOptionsBuilder optionsBuilder);
+        internal virtual void Configure(DbContextOptionsBuilder optionsBuilder)
+        {
+            this.logger.LogInformation("Database Connection String: {ConnectionString}", this.DisplayConnectionString);
+        }
+
+        /// <summary>
+        /// Log-friendly connection string, obfuscating password.
+        /// </summary>
+        public string DisplayConnectionString {
+            get
+            {
+                string[] strikeoutConStrParams = { "user", "user id", "username", "password", "pwd", "secret" };
+                IEnumerable<string> pairs = from key in this.dbConnectionStringBuilder.Keys.Cast<string>()
+                                                     let pair = new
+                                                     {
+                                                         Key = key,
+                                                         Value = strikeoutConStrParams.Contains(key.ToLowerInvariant()) ?
+                                                                                    "*************" : this.dbConnectionStringBuilder[key]
+                                                     }
+                                                     select $"{pair.Key}={pair.Value}";
+                return string.Join(";", pairs);
+            }
+        }
     }
 }
