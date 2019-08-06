@@ -8,6 +8,8 @@ COPY UnicornStore/UnicornStore.csproj UnicornStore/
 RUN dotnet restore UnicornStore/UnicornStore.csproj
 COPY . .
 WORKDIR /src/UnicornStore
+#ARG DATABASE="POSTGRES"
+#RUN dotnet build UnicornStore.csproj -c Release -o /app /p:DefineConstants=\"${DATABASE},TRACE\";
 RUN dotnet build UnicornStore.csproj -c Release -o /app
 
 FROM build AS publish

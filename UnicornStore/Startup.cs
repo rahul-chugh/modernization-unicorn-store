@@ -37,7 +37,7 @@ namespace UnicornStore
 
         public void ConfigureServices(IServiceCollection services)
         {
-#if MSSQL
+#if !POSTGRES
             const string dbConnectionStringSettingName = "UnicornStoreSql";
             services.Configure<SqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
             services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
@@ -49,6 +49,8 @@ namespace UnicornStore
             services.AddTransient<DbContextOptionsConfigurator, NpgsqlDbContextOptionsConfigurator>();
 #endif
             services.AddDbContext<UnicornStoreContext>();
+
+            services.Configure<AppSettings>(this.Configuration.GetSection("AppSettings"));
 
             // Add Identity services to the services container
             services.AddIdentity<ApplicationUser, IdentityRole>()
