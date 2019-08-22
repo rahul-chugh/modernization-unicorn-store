@@ -4,10 +4,19 @@
     <Description>Unicorn store application on ASP.NET Core</Description>
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <UserSecretsId>45b651b1-da6a-44fb-af93-525b292efddb</UserSecretsId>
+    <Configurations>Debug;Release;DebugPostgres;ReleasePostgres</Configurations>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE;MSSQL</DefineConstants>
+	<DefineConstants>TRACE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugPostgres|AnyCPU'">
+    <DefineConstants>TRACE;POSTGRES</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleasePostgres|AnyCPU'">
+    <DefineConstants>TRACE;POSTGRES</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

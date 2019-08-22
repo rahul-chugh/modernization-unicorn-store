@@ -38,11 +38,19 @@ namespace UnicornStore
         public void ConfigureServices(IServiceCollection services)
         {
 #if !POSTGRES
+#if Debug
+#warning Using MS SQL Server for a database
+#endif
+            Console.WriteLine("Using MS SQL Server for a database");
             const string dbConnectionStringSettingName = "UnicornStoreSql";
             services.Configure<SqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
             services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
             services.AddTransient<DbContextOptionsConfigurator, SqlDbContextOptionsConfigurator>();
 #else
+#if Debug
+#warning Using PostgreSQL for a database
+#endif
+            Console.WriteLine("Using PostgreSQL for a database");
             const string dbConnectionStringSettingName = "UnicornStorePg";
             services.Configure<NpgsqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
             services.AddScoped(di => DbConnectionStringBuilderFactory<NpgsqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
