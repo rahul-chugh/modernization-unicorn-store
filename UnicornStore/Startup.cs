@@ -38,7 +38,7 @@ namespace UnicornStore
         public void ConfigureServices(IServiceCollection services)
         {
 #if !POSTGRES
-#if Debug
+#if Debug || DEBUG
 #warning Using MS SQL Server for a database
 #endif
             Console.WriteLine("Using MS SQL Server for a database");
@@ -47,7 +47,7 @@ namespace UnicornStore
             services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
             services.AddTransient<DbContextOptionsConfigurator, SqlDbContextOptionsConfigurator>();
 #else
-#if Debug
+#if Debug || DEBUG
 #warning Using PostgreSQL for a database
 #endif
             Console.WriteLine("Using PostgreSQL for a database");
