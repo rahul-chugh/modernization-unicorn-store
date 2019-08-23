@@ -37,25 +37,7 @@ namespace UnicornStore
 
         public void ConfigureServices(IServiceCollection services)
         {
-#if !POSTGRES
-#if Debug || DEBUG
-#warning Using MS SQL Server for a database
-#endif
-            Console.WriteLine("Using MS SQL Server for a database");
-            const string dbConnectionStringSettingName = "UnicornStoreSql";
-            services.Configure<SqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
-            services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
-            services.AddTransient<DbContextOptionsConfigurator, SqlDbContextOptionsConfigurator>();
-#else
-#if Debug || DEBUG
-#warning Using PostgreSQL for a database
-#endif
-            Console.WriteLine("Using PostgreSQL for a database");
-            const string dbConnectionStringSettingName = "UnicornStorePg";
-            services.Configure<NpgsqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
-            services.AddScoped(di => DbConnectionStringBuilderFactory<NpgsqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
-            services.AddTransient<DbContextOptionsConfigurator, NpgsqlDbContextOptionsConfigurator>();
-#endif
+            this.ConfigureDatabaseEngine(services);
             services.AddDbContext<UnicornStoreContext>();
 
             services.Configure<AppSettings>(this.Configuration.GetSection("AppSettings"));
@@ -83,7 +65,8 @@ namespace UnicornStore
             services.AddOptions();
 
             // Add the Healthchecks
-            services.AddHealthChecks()
+            services
+                .AddHealthChecks()
                 .AddCheck<UnicornHomePageHealthCheck>("UnicornStore_HealthCheck");
 
             // Add memory cache services
@@ -108,6 +91,32 @@ namespace UnicornStore
             });
         }
 
+        private void ConfigureDatabaseEngine(IServiceCollection services)
+        {
+#if !POSTGRES
+#if Debug || DEBUG
+            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
+#warning Using MS SQL Server for a database
+#endif
+            Console.WriteLine("Using MS SQL Server for a database");
+#pragma warning restore CS1030 // #warning directive
+            const string dbConnectionStringSettingName = "UnicornStoreSql";
+            services.Configure<SqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
+            services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
+            services.AddTransient<DbContextOptionsConfigurator, SqlDbContextOptionsConfigurator>();
+#else
+#if Debug || DEBUG
+            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
+#warning Using PostgreSQL for a database
+#endif
+            Console.WriteLine("Using PostgreSQL for a database");
+            const string dbConnectionStringSettingName = "UnicornStorePg";
+            services.Configure<NpgsqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
+            services.AddScoped(di => DbConnectionStringBuilderFactory<NpgsqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
+            services.AddTransient<DbContextOptionsConfigurator, NpgsqlDbContextOptionsConfigurator>();
+#endif
+        }
+
         /// <summary>
         /// Combines default/common connection information supplied in the "ConnectionStrings.UnicornStore" configuration,
         /// with override values supplied by the "UnicornDbConnectionStringBuilder" configuration settings section.
@@ -124,50 +133,26 @@ namespace UnicornStore
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
+            // StatusCode pages to gracefully handle status codes 400-599.
+            app.UseStatusCodePagesWithRedirects("~/Home/StatusCodePage");
+
             //This is invoked when ASPNETCORE_ENVIRONMENT is 'Development' or is not defined
             //The allowed values are Development,Staging and Production
             if (env.IsDevelopment())
             {
-                // StatusCode pages to gracefully handle status codes 400-599.
-                app.UseStatusCodePagesWithRedirects("~/Home/StatusCodePage");
-
                 // Display custom error page in production when error occurs
                 // During development use the ErrorPage middleware to display error information in the browser
                 app.UseDeveloperExceptionPage();
-
                 app.UseDatabaseErrorPage();
             }
 
             //This is invoked when ASPNETCORE_ENVIRONMENT is 'Production' or 'Staging'
-            if (env.IsProduction() || env.IsStaging() )
+            if (env.IsProduction() || env.IsStaging())
             {
-                // StatusCode pages to gracefully handle status codes 400-599.
-                app.UseStatusCodePagesWithRedirects("~/Home/StatusCodePage");
-
                 app.UseExceptionHandler("/Home/Error");
             }
 
-            app.UseHealthChecks("/health",
-                new HealthCheckOptions
-                {
-                    ResponseWriter = async (context, report) =>
-                    {
-                        var result = JsonConvert.SerializeObject(
-                            new
-                            {
-                                OverallStatus = report.Status.ToString(),
-                                HealthChecks = report.Entries.Select(e => new
-                                {
-                                    name = e.Key,
-                                    value = Enum.GetName(typeof(HealthStatus), e.Value.Status),
-                                    status = e.Value.Description,
-                                    duration = e.Value.Duration
-                                })
-                            });
-                        context.Response.ContentType = MediaTypeNames.Application.Json;
-                        await context.Response.WriteAsync(result);
-                    }
-                });
+            app.UseHealthChecks("/health", ConfigureHealthCheckResponse());
 
             // force the en-US culture, so that the app behaves the same even on machines with different default culture
             var supportedCultures = new[] { new CultureInfo("en-US") };
@@ -211,6 +196,30 @@ namespace UnicornStore
                     name: "api",
                     template: "{controller}/{id?}");
             });
+        }
+
+        private static HealthCheckOptions ConfigureHealthCheckResponse()
+        {
+            return new HealthCheckOptions
+            {
+                ResponseWriter = async (context, report) =>
+                {
+                    var result = JsonConvert.SerializeObject(
+                        new
+                        {
+                            OverallStatus = report.Status.ToString(),
+                            HealthChecks = report.Entries.Select(e => new
+                            {
+                                name = e.Key,
+                                value = Enum.GetName(typeof(HealthStatus), e.Value.Status),
+                                status = e.Value.Description,
+                                duration = e.Value.Duration
+                            })
+                        });
+                    context.Response.ContentType = MediaTypeNames.Application.Json;
+                    await context.Response.WriteAsync(result);
+                }
+            };
         }
     }
 }
