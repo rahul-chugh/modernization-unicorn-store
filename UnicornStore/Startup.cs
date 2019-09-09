@@ -21,6 +21,7 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using System.Data.SqlClient;
 using UnicornStore.Configuration;
+using MySql.Data.MySqlClient;
 
 namespace UnicornStore
 {
@@ -93,7 +94,27 @@ namespace UnicornStore
 
         private void ConfigureDatabaseEngine(IServiceCollection services)
         {
-#if !POSTGRES
+#if MYSQL
+#if Debug || DEBUG
+            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
+#warning Using MySQL for a database
+#endif
+            Console.WriteLine("Using PostgreSQL for a database");
+            const string dbConnectionStringSettingName = "UnicornStoreMySql";
+            services.Configure<MySqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
+            services.AddScoped(di => DbConnectionStringBuilderFactory<MySqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
+            services.AddTransient<DbContextOptionsConfigurator, MySqlDbContextOptionsConfigurator>();
+#elif POSTGRES
+#if Debug || DEBUG
+            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
+#warning Using PostgreSQL for a database
+#endif
+            Console.WriteLine("Using PostgreSQL for a database");
+            const string dbConnectionStringSettingName = "UnicornStorePg";
+            services.Configure<NpgsqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
+            services.AddScoped(di => DbConnectionStringBuilderFactory<NpgsqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
+            services.AddTransient<DbContextOptionsConfigurator, NpgsqlDbContextOptionsConfigurator>();
+#else
 #if Debug || DEBUG
             // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
 #warning Using MS SQL Server for a database
@@ -104,16 +125,6 @@ namespace UnicornStore
             services.Configure<SqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
             services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
             services.AddTransient<DbContextOptionsConfigurator, SqlDbContextOptionsConfigurator>();
-#else
-#if Debug || DEBUG
-            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
-#warning Using PostgreSQL for a database
-#endif
-            Console.WriteLine("Using PostgreSQL for a database");
-            const string dbConnectionStringSettingName = "UnicornStorePg";
-            services.Configure<NpgsqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
-            services.AddScoped(di => DbConnectionStringBuilderFactory<NpgsqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
-            services.AddTransient<DbContextOptionsConfigurator, NpgsqlDbContextOptionsConfigurator>();
 #endif
         }
 
