@@ -42,12 +42,13 @@ namespace UnicornStore.Configuration
         }
 
         /// <summary>
-        /// Log-friendly connection string, obfuscating password.
+        /// Log-friendly connection string, obfuscating passwords and other sensitive fields.
         /// </summary>
         public string DisplayConnectionString {
             get
             {
-                string[] strikeoutConStrParams = { "user", "user id", "username", "password", "pwd", "secret" };
+                string[] strikeoutConStrParams = { "user", "user id", "username", "uid", "password", "pwd", "secret" };
+
                 IEnumerable<string> pairs = from key in this.dbConnectionStringBuilder.Keys.Cast<string>()
                                                      let pair = new
                                                      {

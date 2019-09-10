@@ -95,37 +95,67 @@ namespace UnicornStore
         private void ConfigureDatabaseEngine(IServiceCollection services)
         {
 #if MYSQL
-#if Debug || DEBUG
-            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
-#warning Using MySQL for a database
-#endif
-            Console.WriteLine("Using PostgreSQL for a database");
-            const string dbConnectionStringSettingName = "UnicornStoreMySql";
-            services.Configure<MySqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
-            services.AddScoped(di => DbConnectionStringBuilderFactory<MySqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
-            services.AddTransient<DbContextOptionsConfigurator, MySqlDbContextOptionsConfigurator>();
+            this.HookupMySQL(services);
 #elif POSTGRES
-#if Debug || DEBUG
-            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
-#warning Using PostgreSQL for a database
-#endif
-            Console.WriteLine("Using PostgreSQL for a database");
-            const string dbConnectionStringSettingName = "UnicornStorePg";
-            services.Configure<NpgsqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
-            services.AddScoped(di => DbConnectionStringBuilderFactory<NpgsqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
-            services.AddTransient<DbContextOptionsConfigurator, NpgsqlDbContextOptionsConfigurator>();
+            this.HookupPostgres(services);
 #else
+            this.HookupSqlServer(services);
+#endif
+        }
+
+        private void HookupSqlServer(IServiceCollection services)
+        {
 #if Debug || DEBUG
             // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
 #warning Using MS SQL Server for a database
 #endif
-            Console.WriteLine("Using MS SQL Server for a database");
-#pragma warning restore CS1030 // #warning directive
-            const string dbConnectionStringSettingName = "UnicornStoreSql";
-            services.Configure<SqlConnectionStringBuilder>(this.ConnectionStringOverrideConfigSection);
-            services.AddScoped(di => DbConnectionStringBuilderFactory<SqlConnectionStringBuilder>(di, dbConnectionStringSettingName));
-            services.AddTransient<DbContextOptionsConfigurator, SqlDbContextOptionsConfigurator>();
+            this.HookupDatabase<SqlConnectionStringBuilder, SqlDbContextOptionsConfigurator>(services, "SqlServer");
+        }
+
+#if MYSQL
+        private void HookupMySQL(IServiceCollection services)
+        {
+#if Debug || DEBUG
+            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
+#warning Using MySQL for a database
 #endif
+            this.HookupDatabase<MySqlConnectionStringBuilder, MySqlDbContextOptionsConfigurator>(services, "MySQL");
+        }
+#endif
+
+#if POSTGRES
+        private void HookupPostgres(IServiceCollection services)
+        {
+#if Debug || DEBUG
+            // The line below is a compile-time debug feature for `docker build` outputting which database engine is hooked up 
+#warning Using PostgreSQL for a database
+#endif
+            this.HookupDatabase<NpgsqlConnectionStringBuilder, NpgsqlDbContextOptionsConfigurator>(services, "Postgres");
+        }
+#endif
+
+        /// <summary>
+        /// Integrates connection string data from config settings file "ConnectionStrings" section, 
+        /// with override settings from the "UnicornDbConnectionStringBuilder" section of the config
+        /// </summary>
+        /// <remarks>
+        /// This function ensures that connection string and connection string builder configuration
+        /// is not cached as a singleton throughout the lifetime of the app, 
+        /// but rather reloaded at run time whenever settings change.
+        /// </remarks>
+        /// <typeparam name="Tsb">A database engine specific DbConnectionStringBuilder subclass</typeparam>
+        /// <typeparam name="Topt">A database engine specific DbContextOptionsConfigurator subclass</typeparam>
+        /// <param name="services">DI container</param>
+        /// <param name="databaseEngine">A suffix used for making a connection string name by appending it to the "UnicornStore" string</param>
+        private void HookupDatabase<Tsb, Topt>(IServiceCollection services, string databaseEngine)
+            where Tsb : DbConnectionStringBuilder, new()
+            where Topt : DbContextOptionsConfigurator
+        {
+            Console.WriteLine($"Using {databaseEngine} for a database");
+            string dbConnectionStringSettingName = $"UnicornStore{databaseEngine}";
+            services.Configure<Tsb>(this.ConnectionStringOverrideConfigSection);
+            services.AddScoped(di => DbConnectionStringBuilderFactory<Tsb>(di, dbConnectionStringSettingName));
+            services.AddTransient<DbContextOptionsConfigurator, Topt>();
         }
 
         /// <summary>
