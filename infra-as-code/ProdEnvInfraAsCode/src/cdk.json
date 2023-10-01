@@ -1,0 +1,3 @@
+{
+  "app": "dotnet bin/local/netcoreapp3.0/ProdEnvInfraAsCode.dll"
+}
